@@ -1,0 +1,35 @@
+# --- Zbiór danych (INNY NIŻ COCO) ---
+# african-wildlife.yaml  -> mały, szybki, 4 klasy, auto-pobieranie (ZALECANY)
+# VisDrone.yaml          -> trudny (drony, małe obiekty), 2.3 GB
+# VOC.yaml               -> klasyczny, 20 klas, ~11k obrazów
+dataset: african-wildlife.yaml
+
+# --- Model bazowy do pojedynczych uruchomień ---
+model: yolo11n.pt
+device: cpu            # 'cpu' (ewaluacja) lub '0' (GPU, do fine-tuningu)
+imgsz: 640
+conf: 0.25
+iou: 0.45
+seed: 42               # stały seed = powtarzalność (ważne dla porównań)
+
+# --- Macierz eksperymentów ---
+experiments:
+  # A: różne wersje, ten sam rozmiar (n)
+  versions: [yolov8n.pt, yolo11n.pt]      # opcjonalnie dodaj yolo26n.pt
+  # B: różne rozmiary, ta sama wersja (11)
+  sizes:    [yolo11n.pt, yolo11s.pt, yolo11m.pt]
+  # C: hiperparametr 1 — rozdzielczość (sweep ewaluacji, BEZ retrenowania)
+  imgsz_sweep: [320, 640, 960]
+  # D: hiperparametr 2 — liczba epok fine-tuningu
+  epochs_sweep: [20, 50, 100]
+
+# --- Fine-tuning ---
+train:
+  epochs: 50           # bazowa liczba epok
+  batch: 16
+  patience: 15         # early stopping
+
+# --- Demo (jedna wersja, 3 rozmiary, porównanie opóźnień) ---
+demo:
+  models: [yolo11n.pt, yolo11s.pt, yolo11m.pt]
+  source: https://ultralytics.com/images/bus.jpg   # lub data/clip.mp4 / 0 (kamera)

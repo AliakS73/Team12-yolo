@@ -1,0 +1,14 @@
+ultralytics>=8.3.0,<9.0.0
+opencv-python>=4.9.0
+numpy>=1.24.0
+pandas>=2.0.0
+matplotlib>=3.7.0
+pyyaml>=6.0
+tqdm>=4.65.0
+
+# (wariant CPU). Dla GPU zainstaluj najpierw CUDA-owego PyTorcha ze strony
+# https://pytorch.org/get-started/locally/ PRZED instalacją tego pliku, a pip zachowa build GPU.
+
+# Notebook demonstracyjny:
+jupyter>=1.0.0
+ipykernel>=6.25.0

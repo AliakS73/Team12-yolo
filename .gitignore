@@ -1,0 +1,25 @@
+# Środowiska
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+
+# Wagi modeli (pobierają się automatycznie)
+*.pt
+!yolo11n.pt.placeholder
+
+# Dane i wyniki (nie commitujemy dużych plików)
+data/*
+!data/.gitkeep
+results/*
+!results/.gitkeep
+runs/
+
+# Notebooki - czyszczone z outputów przed commitem
+.ipynb_checkpoints/
+
+# IDE / system
+.idea/
+.vscode/
+.DS_Store
