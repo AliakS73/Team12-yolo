@@ -1,64 +1,76 @@
 #!/usr/bin/env bash
 # ============================================================
-#  Pełny przebieg eksperymentów (TEMAT 13)
+#  Pełny przebieg eksperymentów ZERO-SHOT (TEMAT 13, VOC)
 #
-#  Etap DROGI (fine-tuning) -> najlepiej GPU / Google Colab
-#  Etap TANI  (ewaluacja)   -> może być CPU
+#  Bez treningu — ewaluujemy modele COCO-pretrained na VOC.
+#  Sama inferencja: szybkie, działa na GPU (DEVICE=0) lub CPU.
 #
 #  Uruchom z katalogu głównego repo:
 #     bash experiments/run_all.sh
+#     DEVICE=cpu bash experiments/run_all.sh
 #
-#  Najpierw smoke-test (małe epochs) aby sprawdzić, że wszystko działa,
-#  potem podmień EPOCHS=50 na właściwy przebieg.
+#  Punkt bazowy = yolo11n @ imgsz640, iou0.6 (środek obu sweepów),
+#  więc sweepy HP1/HP2 pomijają środek, by nie duplikować wierszy.
 # ============================================================
 
 set -e
 cd "$(dirname "$0")/.."
 
-DEVICE=${DEVICE:-cpu}      # ustaw DEVICE=0 jeśli masz GPU:  DEVICE=0 bash experiments/run_all.sh
-EPOCHS=${EPOCHS:-3}        # smoke-test = 3. Właściwy: EPOCHS=50 bash experiments/run_all.sh
-FT=results/finetune
+DEVICE=${DEVICE:-cpu}        # 'cpu' (domyślnie) lub '0' (GPU, jeśli sterownik pasuje)
+PY=.venv/bin/python
+[ -x "$PY" ] || PY=python
 
-echo "### Ustawienia: DEVICE=$DEVICE  EPOCHS=$EPOCHS"
+echo "### DEVICE=$DEVICE"
 echo
 
 echo "================================================================"
-echo " ETAP 1 — FINE-TUNING (eksperyment A: wersje, B: rozmiary)"
+echo " ETAP 0 — przygotowanie zbiorów (raz): VOC->COCO remap + COCO-20"
 echo "================================================================"
-for M in yolov8n.pt yolo11n.pt yolo11s.pt yolo11m.pt; do
-  echo ">>> fine-tuning $M"
-  python src/finetune.py --model "$M" --epochs "$EPOCHS" --device "$DEVICE"
+$PY src/prepare_voc_cocomap.py
+$PY src/prepare_coco20.py        # COCO val2017 ograniczone do 20 klas VOC (~1.25 GB)
+
+echo
+echo "================================================================"
+echo " ETAP A+B — wersje (n: v8/11/26) i rozmiary (yolo11 n/s/m) @ imgsz640 [VOC]"
+echo "          + wersje na rozmiarze s (v8s/11s/26s) — kontrola tezy o wersjach"
+echo "================================================================"
+for M in yolov8n.pt yolo11n.pt yolo26n.pt yolo11s.pt yolo11m.pt yolov8s.pt yolo26s.pt; do
+  echo ">>> $M"
+  $PY src/evaluate.py --model "$M" --imgsz 640 --device "$DEVICE"
 done
 
 echo
 echo "================================================================"
-echo " ETAP 2 — EWALUACJA (mAP + czas inferencji na zbiorze testowym)"
+echo " ETAP A+B (COCO-20) — te same modele na trudniejszych zdjęciach (te same 20 klas)"
 echo "================================================================"
-for M in yolov8n yolo11n yolo11s yolo11m; do
-  W="$FT/${M}_ep${EPOCHS}_img640/weights/best.pt"
-  echo ">>> ewaluacja $W (imgsz 640)"
-  python src/evaluate.py --weights "$W" --imgsz 640 --device "$DEVICE"
+for M in yolov8n.pt yolo11n.pt yolo26n.pt yolo11s.pt yolo11m.pt yolov8s.pt yolo26s.pt; do
+  echo ">>> $M @ COCO-20"
+  $PY src/evaluate.py --model "$M" --dataset coco20.yaml --imgsz 640 --device "$DEVICE"
 done
 
 echo
 echo "================================================================"
-echo " ETAP 3 — HIPERPARAMETR 1: imgsz (sweep BEZ retrenowania)"
+echo " ETAP C — HP1: rozdzielczość imgsz (yolo11n; 640 = baseline)"
 echo "================================================================"
-W="$FT/yolo11n_ep${EPOCHS}_img640/weights/best.pt"
-for SZ in 320 640 960; do
+for SZ in 320 960; do
   echo ">>> yolo11n @ imgsz=$SZ"
-  python src/evaluate.py --weights "$W" --imgsz "$SZ" --device "$DEVICE"
+  $PY src/evaluate.py --model yolo11n.pt --imgsz "$SZ" --device "$DEVICE"
 done
 
 echo
 echo "================================================================"
-echo " ETAP 4 — AGREGACJA wyników (tabele + wykresy)"
+echo " ETAP D — HP2: próg IoU dla NMS (yolo11n; 0.6 = baseline)"
 echo "================================================================"
-python src/aggregate_results.py
+for IOU in 0.45 0.7; do
+  echo ">>> yolo11n @ iou=$IOU"
+  $PY src/evaluate.py --model yolo11n.pt --imgsz 640 --iou "$IOU" --device "$DEVICE"
+done
 
 echo
-echo "Gotowe. Wyniki, tabele i wykresy w results/."
+echo "================================================================"
+echo " ETAP E — AGREGACJA (tabela + wykresy)"
+echo "================================================================"
+$PY src/aggregate_results.py
+
 echo
-echo "HIPERPARAMETR 2 (liczba epok) — uruchom osobno na GPU, np.:"
-echo "  for E in 20 50 100; do python src/finetune.py --model yolo11n.pt --epochs \$E --device 0; done"
-echo "  potem evaluate.py na każdych wagach i ponownie aggregate_results.py"
+echo "Gotowe. Wyniki, tabela i wykresy w results/."

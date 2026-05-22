@@ -1,33 +1,38 @@
-# --- Zbiór danych (INNY NIŻ COCO) ---
-# african-wildlife.yaml  -> mały, szybki, 4 klasy, auto-pobieranie (ZALECANY)
-# VisDrone.yaml          -> trudny (drony, małe obiekty), 2.3 GB
-# VOC.yaml               -> klasyczny, 20 klas, ~11k obrazów
-dataset: african-wildlife.yaml
+# --- Zbiór danych: ZERO-SHOT na zbiorze != COCO ---
+# Ewaluujemy modele COCO-pretrained BEZPOŚREDNIO na VOC (bez treningu).
+# Działa, bo wszystkie 20 klas VOC zawiera się w 80 klasach COCO.
+# Plik VOC_cocomap.yaml (etykiety VOC przepisane na indeksy COCO) generuje
+# skrypt:  python src/prepare_voc_cocomap.py
+dataset: VOC_cocomap.yaml
+
+# Indeksy COCO odpowiadające 20 klasom VOC — filtr predykcji w ewaluacji
+# (ucina detekcje klas spoza VOC, żeby mAP było liczone poprawnie).
+classes: [0, 1, 2, 3, 4, 5, 6, 8, 14, 15, 16, 17, 18, 19, 39, 56, 57, 58, 60, 62]
 
 # --- Model bazowy do pojedynczych uruchomień ---
 model: yolo11n.pt
-device: cpu            # 'cpu' (ewaluacja) lub '0' (GPU, do fine-tuningu)
+device: cpu            # 'cpu' (sterownik GPU za stary dla tego buildu CUDA) lub '0'
 imgsz: 640
-conf: 0.25
-iou: 0.45
-seed: 42               # stały seed = powtarzalność (ważne dla porównań)
+iou: 0.6              # próg NMS — środek sweepa HP2 (= punkt bazowy)
+conf: 0.25           # próg pewności dla detect.py / demo (ewaluacja używa 0.001)
+split: val            # VOC: 'val' = test2007 (~4952 obrazy testowe)
+batch: 8              # batch ewaluacji (bezpieczny dla 4 GB VRAM)
+seed: 42
 
-# --- Macierz eksperymentów ---
+# --- Macierz eksperymentów (zero-shot, bez treningu) ---
 experiments:
-  # A: różne wersje, ten sam rozmiar (n)
-  versions: [yolov8n.pt, yolo11n.pt]      # opcjonalnie dodaj yolo26n.pt
-  # B: różne rozmiary, ta sama wersja (11)
+  # A: różne wersje, ten sam rozmiar (n) — "nowszy != zawsze lepszy poza COCO"
+  #    v8(2023) -> v11(2024) -> v26(2025). UWAGA: yolo26 jest end-to-end (bez NMS),
+  #    więc HP2 (próg NMS) go nie dotyczy — sweep iou robimy tylko na yolo11n.
+  versions: [yolov8n.pt, yolo11n.pt, yolo26n.pt]   # opcjonalnie: yolov5nu.pt, yolov10n.pt
+  # A': te same wersje na rozmiarze s — kontrola tezy (na n różnice generacji są małe)
+  versions_s: [yolov8s.pt, yolo11s.pt, yolo26s.pt]
+  # B: różne rozmiary, ta sama wersja (11) — "większy = precyzyjniejszy"
   sizes:    [yolo11n.pt, yolo11s.pt, yolo11m.pt]
-  # C: hiperparametr 1 — rozdzielczość (sweep ewaluacji, BEZ retrenowania)
+  # C: HP1 — rozdzielczość wejścia (sweep ewaluacji)
   imgsz_sweep: [320, 640, 960]
-  # D: hiperparametr 2 — liczba epok fine-tuningu
-  epochs_sweep: [20, 50, 100]
-
-# --- Fine-tuning ---
-train:
-  epochs: 50           # bazowa liczba epok
-  batch: 16
-  patience: 15         # early stopping
+  # D: HP2 — próg IoU dla NMS (sweep ewaluacji)
+  iou_sweep:   [0.45, 0.6, 0.7]
 
 # --- Demo (jedna wersja, 3 rozmiary, porównanie opóźnień) ---
 demo:

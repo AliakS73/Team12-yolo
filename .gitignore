@@ -9,6 +9,10 @@ __pycache__/
 *.pt
 !yolo11n.pt.placeholder
 
+# Wygenerowane dataset YAML do zero-shot (zawierają absolutne ścieżki maszyny)
+VOC_cocomap.yaml
+coco20.yaml
+
 # Dane i wyniki (nie commitujemy dużych plików)
 data/*
 !data/.gitkeep
