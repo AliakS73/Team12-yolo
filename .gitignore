@@ -18,6 +18,11 @@ data/*
 !data/.gitkeep
 results/*
 !results/.gitkeep
+# ...ale raport, tabele wynikowe i wykresy trzymamy w repo (wymagane przez rubrykę)
+!results/REPORT.md
+!results/results.csv
+!results/summary_table.csv
+!results/*.png
 runs/
 
 # Notebooki - czyszczone z outputów przed commitem
